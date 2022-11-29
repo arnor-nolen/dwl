@@ -10,5 +10,5 @@ MANDIR = $(PREFIX)/share/man
 XWAYLAND =
 XLIBS =
 # Uncomment to build XWayland support
-#XWAYLAND = -DXWAYLAND
-#XLIBS = xcb
+XWAYLAND = -DXWAYLAND
+XLIBS = xcb
