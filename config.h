@@ -1,7 +1,7 @@
 /* appearance */
 static const int sloppyfocus        = 1;  /* focus follows mouse */
+static const int bypass_surface_visibility = 0;  /* 1 means idle inhibitors will disable idle tracking even if it's surface isn't visible  */
 static const unsigned int borderpx  = 2;  /* border pixel of windows */
-static const int lockfullscreen     = 1;  /* 1 will force focus on the fullscreen window */
 static const float rootcolor[]      = {0.3, 0.3, 0.3, 1.0};
 static const float bordercolor[]    = {0.5, 0.5, 0.5, 1.0};
 static const float focuscolor[]     = {1.0, 0.0, 0.0, 1.0};
@@ -33,12 +33,12 @@ static const Layout layouts[] = {
 
 /* monitors */
 static const MonitorRule monrules[] = {
-	/* name       mfact nmaster scale layout       rotate/reflect */
+	/* name       mfact nmaster scale layout       rotate/reflect x y*/
 	/* example of a HiDPI laptop monitor:
 	{ "eDP-1",    0.5,  1,      2,    &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL },
 	*/
 	/* defaults */
-	{ NULL,       0.55, 1,      1,    &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL },
+	{ NULL,       0.55, 1,      1,    &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL, -1, -1 },
 };
 
 /* keyboard */
@@ -89,6 +89,11 @@ LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE
 */
 static const enum libinput_config_accel_profile accel_profile = LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE;
 static const double accel_speed = 0.0;
+/* You can choose between:
+LIBINPUT_CONFIG_TAP_MAP_LRM -- 1/2/3 finger tap maps to left/right/middle
+LIBINPUT_CONFIG_TAP_MAP_LMR -- 1/2/3 finger tap maps to left/middle/right
+*/
+static const enum libinput_config_tap_button_map button_map = LIBINPUT_CONFIG_TAP_MAP_LRM;
 
 /* If you want to use the windows key for MODKEY, use WLR_MODIFIER_LOGO */
 #define MODKEY WLR_MODIFIER_ALT
