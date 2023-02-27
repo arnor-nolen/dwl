@@ -39,7 +39,7 @@ static const Rule rules[] = {
 static const Layout layouts[] = {
 	/* symbol     arrange function */
 	{ "[]=",      tile },
-	{ "&gt;&lt;&gt;",      NULL },    /* no layout function means floating behavior */
+	{ "><>",      NULL },    /* no layout function means floating behavior */
 	{ "[M]",      monocle },
 };
 
@@ -51,7 +51,7 @@ static const MonitorRule monrules[] = {
 	*/
 	/* defaults */
 	{ "DP-2",     0.55, 1,      1.25,    &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL, -1, -1 },
-	{ "HDMI-A-1", 0.55, 1,         1,    &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL, -1, -1 },
+	{ "HDMI-A-1", 0.55, 1,      1.25,    &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL, -1, -1 },
 	{ NULL,       0.55, 1,       1.5,    &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL, -1, -1 },
 };
 
@@ -101,8 +101,8 @@ static const uint32_t send_events_mode = LIBINPUT_CONFIG_SEND_EVENTS_ENABLED;
 LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT
 LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE
 */
-static const enum libinput_config_accel_profile accel_profile = LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE;
-static const double accel_speed = 0.0;
+static const enum libinput_config_accel_profile accel_profile = LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT;
+static const double accel_speed = -0.5;
 /* You can choose between:
 LIBINPUT_CONFIG_TAP_MAP_LRM -- 1/2/3 finger tap maps to left/right/middle
 LIBINPUT_CONFIG_TAP_MAP_LMR -- 1/2/3 finger tap maps to left/middle/right
