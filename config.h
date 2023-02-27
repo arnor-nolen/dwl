@@ -38,7 +38,7 @@ static const MonitorRule monrules[] = {
 	{ "eDP-1",    0.5,  1,      2,    &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL },
 	*/
 	/* defaults */
-	{ NULL,       0.55, 1,      1,    &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL, -1, -1 },
+	{ NULL,       0.55, 1,      1.5,    &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL, -1, -1 },
 };
 
 /* keyboard */
@@ -108,7 +108,7 @@ static const enum libinput_config_tap_button_map button_map = LIBINPUT_CONFIG_TA
 #define SHCMD(cmd) { .v = (const char*[]){ "/bin/sh", "-c", cmd, NULL } }
 
 /* commands */
-static const char *termcmd[] = { "st", NULL };
+static const char *termcmd[] = { "foot", NULL };
 static const char *menucmd[] = { "dmenu_run", NULL };
 
 static const Key keys[] = {
