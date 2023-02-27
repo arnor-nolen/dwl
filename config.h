@@ -8,6 +8,12 @@ static const float focuscolor[]     = {1.0, 0.0, 0.0, 1.0};
 /* To conform the xdg-protocol, set the alpha to zero to restore the old behavior */
 static const float fullscreen_bg[]  = {0.1, 0.1, 0.1, 1.0};
 
+/* Autostart */
+static const char *const autostart[] = {
+        "sh", "-c", "/home/arnor/.dwl/autostart.sh", NULL,
+        NULL /* terminate */
+};
+
 /* tagging */
 static const char *tags[] = { "", "", "", "韛", "?", "?", "ﭮ", "兀", "" };
 
@@ -108,7 +114,7 @@ static const enum libinput_config_tap_button_map button_map = LIBINPUT_CONFIG_TA
 #define SHCMD(cmd) { .v = (const char*[]){ "/bin/sh", "-c", cmd, NULL } }
 
 /* commands */
-static const char *termcmd[] = { "foot", NULL };
+static const char *termcmd[] = { "footclient", NULL };
 static const char *menucmd[] = { "dmenu_run", NULL };
 
 static const Key keys[] = {
