@@ -6,3 +6,4 @@ dwl
 *.orig
 *.rej
 compile_commands.json
+.cache
