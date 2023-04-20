@@ -124,12 +124,12 @@ static const enum libinput_config_tap_button_map button_map = LIBINPUT_CONFIG_TA
 
 /* commands */
 static const char *termcmd[] = { "footclient", NULL };
-static const char *menucmd[] = { "dmenu_run", NULL };
+/* static const char *menucmd[] = { "dmenu_run", NULL }; */
 
 static const Key keys[] = {
     /* Note that Shift changes certain key codes: c -> C, 2 -> at, etc. */
     /* modifier                  key                 function        argument */
-    { MODKEY,                    XKB_KEY_p,          spawn,          {.v = menucmd} },
+    { MODKEY,                    XKB_KEY_p,          spawn,          SHCMD("tofi-run | xargs /bin/sh -c") },
     { MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_Return,     spawn,          {.v = termcmd} },
     { MODKEY,                    XKB_KEY_j,          focusstack,     {.i = +1} },
     { MODKEY,                    XKB_KEY_k,          focusstack,     {.i = -1} },
