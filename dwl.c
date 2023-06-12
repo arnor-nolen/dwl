@@ -897,8 +897,10 @@ createlayersurface(struct wl_listener *listener, void *data)
 	if (!wlr_layer_surface->output)
 		wlr_layer_surface->output = selmon ? selmon->wlr_output : NULL;
 
-	if (!wlr_layer_surface->output)
+	if (!wlr_layer_surface->output) {
 		wlr_layer_surface_v1_destroy(wlr_layer_surface);
+		return;
+	}
 
 	layersurface = ecalloc(1, sizeof(LayerSurface));
 	layersurface->type = LayerShell;
@@ -1112,7 +1114,7 @@ createpointer(struct wlr_pointer *pointer)
 
 		if (libinput_device_config_scroll_get_methods(libinput_device) != LIBINPUT_CONFIG_SCROLL_NO_SCROLL)
 			libinput_device_config_scroll_set_method (libinput_device, scroll_method);
-		
+
 		if (libinput_device_config_click_get_methods(libinput_device) != LIBINPUT_CONFIG_CLICK_METHOD_NONE)
 			libinput_device_config_click_set_method (libinput_device, click_method);
 
@@ -1274,7 +1276,9 @@ void
 focusclient(Client *c, int lift)
 {
 	struct wlr_surface *old = seat->keyboard_state.focused_surface;
-	int i, unused_lx, unused_ly;
+	int i, unused_lx, unused_ly, old_client_type;
+	Client *old_c = NULL;
+	LayerSurface *old_l = NULL;
 
 	if (locked)
 		return;
@@ -1285,6 +1289,12 @@ focusclient(Client *c, int lift)
 
 	if (c && client_surface(c) == old)
 		return;
+
+	if ((old_client_type = toplevel_from_wlr_surface(old, &old_c, &old_l)) == XDGShell) {
+		struct wlr_xdg_popup *popup, *tmp;
+		wl_list_for_each_safe(popup, tmp, &old_c->surface.xdg->popups, link)
+			wlr_xdg_popup_destroy(popup);
+	}
 
 	/* Put the new client atop the focus stack and select its monitor */
 	if (c && !client_is_unmanaged(c)) {
@@ -1306,19 +1316,17 @@ focusclient(Client *c, int lift)
 		/* If an overlay is focused, don't focus or activate the client,
 		 * but only update its position in fstack to render its border with focuscolor
 		 * and focus it after the overlay is closed. */
-		Client *w = NULL;
-		LayerSurface *l = NULL;
-		int type = toplevel_from_wlr_surface(old, &w, &l);
-		if (type == LayerShell && wlr_scene_node_coords(&l->scene->node, &unused_lx, &unused_ly)
-				&& l->layer_surface->current.layer >= ZWLR_LAYER_SHELL_V1_LAYER_TOP) {
+		if (old_client_type == LayerShell && wlr_scene_node_coords(
+					&old_l->scene->node, &unused_lx, &unused_ly)
+				&& old_l->layer_surface->current.layer >= ZWLR_LAYER_SHELL_V1_LAYER_TOP) {
 			return;
-		} else if (w && w == exclusive_focus && client_wants_focus(w)) {
+		} else if (old_c && old_c == exclusive_focus && client_wants_focus(old_c)) {
 			return;
 		/* Don't deactivate old client if the new one wants focus, as this causes issues with winecfg
 		 * and probably other clients */
-		} else if (w && !client_is_unmanaged(w) && (!c || !client_wants_focus(c))) {
+		} else if (old_c && !client_is_unmanaged(old_c) && (!c || !client_wants_focus(c))) {
 			for (i = 0; i < 4; i++)
-				wlr_scene_rect_set_color(w->border[i], bordercolor);
+				wlr_scene_rect_set_color(old_c->border[i], bordercolor);
 
 			client_activate_surface(old, 0);
 		}
@@ -2415,6 +2423,7 @@ setup(void)
 	 * images are available at all scale factors on the screen (necessary for
 	 * HiDPI support). Scaled cursors will be loaded with each output. */
 	cursor_mgr = wlr_xcursor_manager_create(NULL, 24);
+	setenv("XCURSOR_SIZE", "24", 1);
 
 	/*
 	 * wlr_cursor *only* displays an image on screen. It does not move around
@@ -2778,9 +2787,12 @@ updatemons(struct wl_listener *listener, void *data)
 		wl_list_for_each(c, &clients, link)
 			if (!c->mon && client_is_mapped(c))
 				setmon(c, selmon, c->tags);
-		if (selmon->lock_surface)
+		focusclient(focustop(selmon), 1);
+		if (selmon->lock_surface) {
 			client_notify_enter(selmon->lock_surface->surface,
 					wlr_seat_get_keyboard(seat));
+			client_activate_surface(selmon->lock_surface->surface, 1);
+		}
 	}
 
 	wlr_output_manager_v1_set_configuration(output_mgr, config);
