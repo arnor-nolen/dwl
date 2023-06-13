@@ -1384,6 +1384,9 @@ focusstack(const Arg *arg)
 	}
 	/* If only one client is visible on selmon, then c == sel */
 	focusclient(c, 1);
+
+    /* Rearrange in case we're using monocle layout to hide unfocused clients */
+    arrange(selmon);
 }
 
 /* We probably should change the name of this, it sounds like
@@ -1757,6 +1760,7 @@ monocle(Monitor *m)
 		if (!VISIBLEON(c, m) || c->isfloating || c->isfullscreen)
 			continue;
 		resize(c, m->w, 0);
+        wlr_scene_node_set_enabled(&c->scene->node, c == focustop(m));
 		n++;
 	}
 	if (n)
