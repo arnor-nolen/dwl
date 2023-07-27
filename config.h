@@ -129,7 +129,7 @@ static const char *termcmd[] = { "footclient", NULL };
 static const Key keys[] = {
     /* Note that Shift changes certain key codes: c -> C, 2 -> at, etc. */
     /* modifier                  key                 function        argument */
-    { WLR_MODIFIER_LOGO,         XKB_KEY_space,      keyboardchange, SHCMD("kill -39 $(pidof status-text") },
+    { WLR_MODIFIER_LOGO,         XKB_KEY_space,      changekeyboard, SHCMD("kill -39 $(pidof status-text)") },
     { MODKEY,                    XKB_KEY_p,          spawn,          SHCMD("tofi-run | xargs /bin/sh -c") },
     { MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_Return,     spawn,          {.v = termcmd} },
     { MODKEY,                    XKB_KEY_j,          focusstack,     {.i = +1} },
