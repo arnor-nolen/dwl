@@ -2575,6 +2575,8 @@ keyboardchange(const Arg *arg)
 
         break;
     }
+
+    spawn(arg);
 }
 
 void
