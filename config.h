@@ -1,3 +1,5 @@
+#include <X11/XF86keysym.h> // For Multimedia control keys
+
 /* appearance */
 static const int sloppyfocus        = 1;  /* focus follows mouse */
 static const int bypass_surface_visibility = 0;  /* 1 means idle inhibitors will disable idle tracking even if it's surface isn't visible  */
@@ -131,6 +133,9 @@ static const char *termcmd[] = { "footclient", NULL };
 static const Key keys[] = {
     /* Note that Shift changes certain key codes: c -> C, 2 -> at, etc. */
     /* modifier                  key                 function        argument */
+	{ 0,                         XF86XK_AudioLowerVolume,    spawn,  SHCMD("pulsemixer --change-volume -5 && kill -37 $(pidof status-text)") },
+	{ 0,                         XF86XK_AudioRaiseVolume,    spawn,  SHCMD("pulsemixer --change-volume +5 && kill -37 $(pidof status-text)") },
+	{ 0,                         XF86XK_AudioMute,   spawn,          SHCMD("pulsemixer --toggle-mute && kill -37 $(pidof status-text)") },
     { WLR_MODIFIER_LOGO,         XKB_KEY_space,      changekeyboard, SHCMD("kill -39 $(pidof status-text)") },
     { MODKEY,                    XKB_KEY_p,          spawn,          SHCMD("tofi-run | xargs /bin/sh -c") },
     { MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_Return,     spawn,          {.v = termcmd} },

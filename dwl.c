@@ -2545,6 +2545,7 @@ spawn(const Arg *arg)
 void
 logkeyboard(void)
 {
+    /* Only logging the first keyboard status */
     Keyboard *kbd;
     const char * full_layout_name;
     char short_layout_name[3] = "";
@@ -2595,8 +2596,6 @@ changekeyboard(const Arg *arg)
                 break;
             }
         }
-
-        break;
     }
 
     logkeyboard();
