@@ -61,8 +61,8 @@ static const struct xkb_rule_names xkb_rules = {
     /* example:
     .options = "ctrl:nocaps",
     */
-    .layout = "us,ru,fi", 
-    .options = "grp:win_space_toggle",
+    .layout = "us,ru,fi"
+    /* .options = "grp:win_space_toggle", */
 };
 
 static const int repeat_rate = 25;
@@ -129,6 +129,7 @@ static const char *termcmd[] = { "footclient", NULL };
 static const Key keys[] = {
     /* Note that Shift changes certain key codes: c -> C, 2 -> at, etc. */
     /* modifier                  key                 function        argument */
+    { WLR_MODIFIER_LOGO,         XKB_KEY_space,      keyboardchange, {0} },
     { MODKEY,                    XKB_KEY_p,          spawn,          SHCMD("tofi-run | xargs /bin/sh -c") },
     { MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_Return,     spawn,          {.v = termcmd} },
     { MODKEY,                    XKB_KEY_j,          focusstack,     {.i = +1} },

@@ -28,6 +28,7 @@
 #include <wlr/types/wlr_input_device.h>
 #include <wlr/types/wlr_input_inhibitor.h>
 #include <wlr/types/wlr_keyboard.h>
+#include <wlr/interfaces/wlr_keyboard.h>
 #include <wlr/types/wlr_layer_shell_v1.h>
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_output_layout.h>
@@ -60,6 +61,7 @@
 #endif
 
 #include "util.h"
+#include <ctype.h>
 
 /* macros */
 #define MAX(A, B)               ((A) > (B) ? (A) : (B))
@@ -321,6 +323,7 @@ static void setsel(struct wl_listener *listener, void *data);
 static void setup(void);
 static void sigchld(int unused);
 static void spawn(const Arg *arg);
+static void keyboardchange(const Arg *arg);
 static void startdrag(struct wl_listener *listener, void *data);
 static void tag(const Arg *arg);
 static void tagmon(const Arg *arg);
@@ -2533,6 +2536,45 @@ spawn(const Arg *arg)
 		execvp(((char **)arg->v)[0], (char **)arg->v);
 		die("dwl: execvp %s failed:", ((char **)arg->v)[0]);
 	}
+}
+
+void
+keyboardchange(const Arg *arg)
+{
+    Keyboard *kbd;
+    const char * full_layout_name;
+    char short_layout_name[3] = "";
+
+    wl_list_for_each(kbd, &keyboards, link) {
+        const xkb_layout_index_t num_layouts = xkb_keymap_num_layouts(kbd->wlr_keyboard->keymap);
+        xkb_layout_index_t i;
+
+        for (i = 0; i != num_layouts; ++i) {
+            if (xkb_state_layout_index_is_active(kbd->wlr_keyboard->xkb_state, i, XKB_STATE_LAYOUT_EFFECTIVE) > 0) {
+                xkb_layout_index_t new_layout = (i + 1) % num_layouts;
+
+                FILE *file = fopen("/home/arnor/.cache/.dwl_kbd_layout", "w");
+
+                if (file == NULL) {
+                    exit(1);
+                }
+
+                full_layout_name = xkb_keymap_layout_get_name(kbd->wlr_keyboard->keymap, new_layout);
+                strncpy(short_layout_name, full_layout_name, 2);
+                short_layout_name[0] = tolower(short_layout_name[0]);
+                fprintf(file, "%s\n", short_layout_name);
+
+                fclose(file);
+
+                wlr_keyboard_notify_modifiers(kbd->wlr_keyboard, kbd->wlr_keyboard->modifiers.depressed,
+                    kbd->wlr_keyboard->modifiers.latched, kbd->wlr_keyboard->modifiers.locked, new_layout);
+
+                break;
+            }
+        }
+
+        break;
+    }
 }
 
 void
