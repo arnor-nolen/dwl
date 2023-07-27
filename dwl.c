@@ -2555,7 +2555,7 @@ logkeyboard(void)
 
         for (i = 0; i != num_layouts; ++i) {
             if (xkb_state_layout_index_is_active(kbd->wlr_keyboard->xkb_state, i, XKB_STATE_LAYOUT_EFFECTIVE) > 0) {
-                FILE *file = fopen("/home/arnor/.cache/.dwl_kbd_layout", "w");
+                FILE *file = fopen(kbd_status_path, "w");
 
                 if (file == NULL) {
                     exit(1);

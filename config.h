@@ -14,6 +14,8 @@ static const float focuscolor[]     = {0.514, 0.647, 0.596, 1.0};
 /* To conform the xdg-protocol, set the alpha to zero to restore the old behavior */
 static const float fullscreen_bg[]  = {0.157, 0.157, 0.157, 1.0};
 
+static const char *kbd_status_path = "/home/arnor/.cache/.dwl_kbd_layout";
+
 /* Autostart */
 static const char *const autostart[] = {
         "sh", "-c", "/home/arnor/.dwl/autostart.sh", NULL,
