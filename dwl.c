@@ -1047,6 +1047,12 @@ createmon(struct wl_listener *listener, void *data)
 	else
 		wlr_output_layout_add(output_layout, wlr_output, m->m.x, m->m.y);
 	strncpy(m->ltsymbol, m->lt[m->sellt]->symbol, LENGTH(m->ltsymbol));
+
+    /* If it's a display port monitor, move cursor */
+    if (strcmp(wlr_output->name, "DP-2") == 0) {
+        wlr_cursor_warp_closest(cursor, NULL, m->m.x + (int)(m->m.width/2), m->m.y + (int)(m->m.height/2));
+    }
+
 }
 
 void
