@@ -27,6 +27,9 @@ static const char *const autostart[] = {
 /* tagging */
 static const char *tags[] = { "", "", "", "", "", "󰗊", "󰙯", "󰗃", "" };
 
+/* TODO: These are using monitor plug order, not actual monitor order. */
+static const int default_tags[] = {6, 0};
+
 static const Rule rules[] = {
     /* app_id     title       tags mask     isfloating   monitor */
     /* examples:

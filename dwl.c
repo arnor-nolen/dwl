@@ -969,6 +969,8 @@ createmon(struct wl_listener *listener, void *data)
 {
 	/* This event is raised by the backend when a new output (aka a display or
 	 * monitor) becomes available. */
+    int mon_id = wl_list_length(&mons);
+
 	struct wlr_output *wlr_output = data;
 	const MonitorRule *r;
 	size_t i;
@@ -986,7 +988,15 @@ createmon(struct wl_listener *listener, void *data)
 	m->gappiv = gappiv;
 	m->gappoh = gappoh;
 	m->gappov = gappov;
-	m->tagset[0] = m->tagset[1] = 1;
+
+    if (mon_id <= LENGTH(default_tags)) {
+        /* Automatically open specific tag */
+        m->tagset[0] = m->tagset[1] = 1u << default_tags[mon_id];
+    }
+    else {
+        m->tagset[0] = m->tagset[1] = 1;
+    }
+
 	for (r = monrules; r < END(monrules); r++) {
 		if (!r->name || strstr(wlr_output->name, r->name)) {
 			m->mfact = r->mfact;
