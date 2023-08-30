@@ -215,6 +215,7 @@ typedef struct {
 	const Layout *lt;
 	enum wl_output_transform rr;
 	int x, y;
+    uint32_t tagset;
 } MonitorRule;
 
 typedef struct {
@@ -969,15 +970,12 @@ createmon(struct wl_listener *listener, void *data)
 {
 	/* This event is raised by the backend when a new output (aka a display or
 	 * monitor) becomes available. */
-    int mon_id = wl_list_length(&mons);
-
 	struct wlr_output *wlr_output = data;
 	const MonitorRule *r;
 	size_t i;
 	Monitor *m = wlr_output->data = ecalloc(1, sizeof(*m));
 	wl_list_init(&m->dwl_wm_monitor_link);
 	m->wlr_output = wlr_output;
-
 	wlr_output_init_render(wlr_output, alloc, drw);
 
 	/* Initialize monitor state using configured rules */
@@ -989,18 +987,13 @@ createmon(struct wl_listener *listener, void *data)
 	m->gappoh = gappoh;
 	m->gappov = gappov;
 
-    if (mon_id <= LENGTH(default_tags)) {
-        /* Automatically open specific tag */
-        m->tagset[0] = m->tagset[1] = 1u << default_tags[mon_id];
-    }
-    else {
-        m->tagset[0] = m->tagset[1] = 1;
-    }
+    m->tagset[0] = m->tagset[1] = 1;
 
 	for (r = monrules; r < END(monrules); r++) {
 		if (!r->name || strstr(wlr_output->name, r->name)) {
 			m->mfact = r->mfact;
 			m->nmaster = r->nmaster;
+            m->tagset[0] = m->tagset[1] = r->tagset;
 			wlr_output_set_scale(wlr_output, r->scale);
 			wlr_xcursor_manager_load(cursor_mgr, r->scale);
 			m->lt[0] = m->lt[1] = r->lt;

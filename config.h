@@ -27,9 +27,6 @@ static const char *const autostart[] = {
 /* tagging */
 static const char *tags[] = { "", "", "", "", "", "󰗊", "󰙯", "󰗃", "" };
 
-/* TODO: These are using monitor plug order, not actual monitor order. */
-static const int default_tags[] = {6, 0};
-
 static const Rule rules[] = {
     /* app_id     title       tags mask     isfloating   monitor */
     /* examples:
@@ -52,14 +49,14 @@ static const Layout layouts[] = {
 
 /* monitors */
 static const MonitorRule monrules[] = {
-    /* name       mfact nmaster scale layout       rotate/reflect x y*/
+    /* name       mfact nmaster scale layout       rotate/reflect x y tagset*/
     /* example of a HiDPI laptop monitor:
     { "eDP-1",    0.5,  1,      2,    &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL },
     */
     /* defaults */
-    { "DP-2",     0.55, 1,      1.25,    &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL, 0, 0 },
-    { "HDMI-A-1", 0.55, 1,      1.25,    &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL, 2048, 0 },
-    { NULL,       0.55, 1,       1.5,    &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL, 0, 0 },
+    { "DP-2",     0.55, 1,      1.25,   &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL, 0, 0, 1u },
+    { "HDMI-A-1", 0.55, 1,      1.25,   &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL, 2048, 0, 1u << 6 },
+    { NULL,       0.55, 1,       1.5,   &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL, 0, 0, 1u },
 };
 
 /* keyboard */
