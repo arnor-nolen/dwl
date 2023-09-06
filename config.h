@@ -25,7 +25,7 @@ static const char *const autostart[] = {
 };
 
 /* tagging */
-static const char *tags[] = { "", "", "", "", "", "󰗊", "󰙯", "󰗃", "" };
+static const char *tags[] = { "", "", "", "", "", "", "󰙯", "", "" };
 
 static const Rule rules[] = {
     /* app_id     title       tags mask     isfloating   monitor */
