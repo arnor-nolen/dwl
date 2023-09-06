@@ -33,7 +33,7 @@ static const Rule rules[] = {
     { "Gimp",     NULL,       0,            1,           -1 },
     */
     { "Gimp",     NULL,       0,                        1,           -1 },
-    { "Firefox",  NULL,       1 << 8,                   0,           -1 },
+    { "firefox",  NULL,       1 << 8,                   0,           -1 },
     { "brave-browser", NULL,       1 << 8,                   0,           -1 },
     { "Code",     NULL,       1 << 1,                   0,           -1 },
     { "discord",  NULL,       1 << 6,                   0,            1 },
