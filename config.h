@@ -27,6 +27,9 @@ static const char *const autostart[] = {
 /* tagging */
 static const char *tags[] = { "", "", "", "", "", "", "󰙯", "", "" };
 
+/* pointer constraints */
+static const int allow_constrain      = 1;
+
 static const Rule rules[] = {
     /* app_id     title       tags mask     isfloating   monitor */
     /* examples:
