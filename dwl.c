@@ -4,7 +4,6 @@
 #include <assert.h>
 #include <getopt.h>
 #include <libinput.h>
-#include <limits.h>
 #include <linux/input-event-codes.h>
 #include <signal.h>
 #include <stdio.h>
@@ -125,6 +124,7 @@ typedef struct {
 	struct wl_listener set_title;
 	struct wl_listener fullscreen;
 	struct wlr_box prev; /* layout-relative, includes border */
+	struct wlr_box bounds;
 #ifdef XWAYLAND
 	struct wl_listener activate;
 	struct wl_listener associate;
@@ -218,6 +218,7 @@ struct Monitor {
 	unsigned int sellt;
 	uint32_t tagset[2];
 	double mfact;
+	int gamma_lut_changed;
 	int nmaster;
 	char ltsymbol[16];
 };
@@ -477,19 +478,9 @@ static size_t autostart_len;
 void
 applybounds(Client *c, struct wlr_box *bbox)
 {
-	if (!c->isfullscreen) {
-		struct wlr_box min = {0}, max = {0};
-		client_get_size_hints(c, &max, &min);
-		/* try to set size hints */
-		c->geom.width = MAX(min.width + (2 * (int)c->bw), c->geom.width);
-		c->geom.height = MAX(min.height + (2 * (int)c->bw), c->geom.height);
-		/* Some clients set their max size to INT_MAX, which does not violate the
-		 * protocol but it's unnecesary, as they can set their max size to zero. */
-		if (max.width > 0 && !(2 * c->bw > INT_MAX - max.width)) /* Checks for overflow */
-			c->geom.width = MIN(max.width + (2 * c->bw), c->geom.width);
-		if (max.height > 0 && !(2 * c->bw > INT_MAX - max.height)) /* Checks for overflow */
-			c->geom.height = MIN(max.height + (2 * c->bw), c->geom.height);
-	}
+	/* set minimum possible */
+	c->geom.width = MAX(1, c->geom.width);
+	c->geom.height = MAX(1, c->geom.height);
 
 	if (c->geom.x >= bbox->x + bbox->width)
 		c->geom.x = bbox->x + bbox->width - c->geom.width;
@@ -708,8 +699,7 @@ buttonpress(struct wl_listener *listener, void *data)
 void
 chvt(const Arg *arg)
 {
-	if (session)
-		wlr_session_change_vt(session, arg->ui);
+	wlr_session_change_vt(session, arg->ui);
 }
 
 void
@@ -735,21 +725,19 @@ cleanup(void)
 {
 #ifdef XWAYLAND
 	wlr_xwayland_destroy(xwayland);
+	xwayland = NULL;
 #endif
 	wl_display_destroy_clients(dpy);
 	if (child_pid > 0) {
 		kill(child_pid, SIGTERM);
 		waitpid(child_pid, NULL, 0);
 	}
-	wlr_backend_destroy(backend);
-	wlr_scene_node_destroy(&scene->tree.node);
-	wlr_renderer_destroy(drw);
-	wlr_allocator_destroy(alloc);
 	wlr_xcursor_manager_destroy(cursor_mgr);
-	wlr_cursor_destroy(cursor);
 	wlr_output_layout_destroy(output_layout);
-	wlr_seat_destroy(seat);
 	wl_display_destroy(dpy);
+	/* Destroy after the wayland display (when the monitors are already destroyed)
+	   to avoid destroying them with an invalid scene output. */
+	wlr_scene_node_destroy(&scene->tree.node);
 }
 
 void
@@ -858,6 +846,9 @@ commitnotify(struct wl_listener *listener, void *data)
 {
 	Client *c = wl_container_of(listener, c, commit);
 
+	if (client_surface(c)->mapped)
+		resize(c, c->geom, (c->isfloating && !c->isfullscreen));
+
 	/* mark a pending resize as completed */
 	if (c->resize && c->resize <= c->surface.xdg->current.configure_serial)
 		c->resize = 0;
@@ -891,6 +882,8 @@ createkeyboard(struct wlr_keyboard *keyboard)
 	context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 	keymap = xkb_keymap_new_from_names(context, &xkb_rules,
 		XKB_KEYMAP_COMPILE_NO_FLAGS);
+	if (!keymap)
+		die("createkeyboard: failed to compile keymap");
 
 	wlr_keyboard_set_keymap(keyboard, keymap);
 	xkb_keymap_unref(keymap);
@@ -1034,11 +1027,6 @@ createmon(struct wl_listener *listener, void *data)
 	wlr_output_enable(wlr_output, 1);
 	if (!wlr_output_commit(wlr_output))
 		return;
-
-	/* Try to enable adaptive sync, note that not all monitors support it.
-	 * wlr_output_commit() will deactivate it in case it cannot be enabled */
-	wlr_output_enable_adaptive_sync(wlr_output, 1);
-	wlr_output_commit(wlr_output);
 
 	wl_list_insert(&mons, &m->link);
 	printstatus();
@@ -1304,7 +1292,7 @@ destroylocksurface(struct wl_listener *listener, void *data)
 void
 destroynotify(struct wl_listener *listener, void *data)
 {
-	/* Called when the surface is destroyed and should never be shown again. */
+	/* Called when the xdg_toplevel is destroyed. */
 	Client *c = wl_container_of(listener, c, destroy);
 	wl_list_remove(&c->destroy.link);
 	wl_list_remove(&c->set_title.link);
@@ -2310,6 +2298,8 @@ rendermon(struct wl_listener *listener, void *data)
 	 * generally at the output's refresh rate (e.g. 60Hz). */
 	Monitor *m = wl_container_of(listener, m, frame);
 	Client *c;
+	struct wlr_output_state pending = {0};
+	struct wlr_gamma_control_v1 *gamma_control;
 	struct timespec now;
 
 	/* Render if no XDG clients have an outstanding resize and are visible on
@@ -2317,11 +2307,37 @@ rendermon(struct wl_listener *listener, void *data)
 	wl_list_for_each(c, &clients, link)
 		if (c->resize && !c->isfloating && client_is_rendered_on_mon(c, m) && !client_is_stopped(c))
 			goto skip;
+
+	/*
+	 * HACK: The "correct" way to set the gamma is to commit it together with
+	 * the rest of the state in one go, but to do that we would need to rewrite
+	 * wlr_scene_output_commit() in order to add the gamma to the pending
+	 * state before committing, instead try to commit the gamma in one frame,
+	 * and commit the rest of the state in the next one (or in the same frame if
+	 * the gamma can not be committed).
+	 */
+	if (m->gamma_lut_changed) {
+		gamma_control = wlr_gamma_control_manager_v1_get_control(gamma_control_mgr, m->wlr_output);
+		m->gamma_lut_changed = 0;
+
+		if (!wlr_gamma_control_v1_apply(gamma_control, &pending))
+			goto commit;
+
+		if (!wlr_output_test_state(m->wlr_output, &pending)) {
+			wlr_gamma_control_v1_send_failed_and_destroy(gamma_control);
+			goto commit;
+		}
+		wlr_output_commit_state(m->wlr_output, &pending);
+		wlr_output_schedule_frame(m->wlr_output);
+	} else {
+commit:
 		wlr_scene_output_commit(m->scene_output, NULL);
+    }
 skip:
 	/* Let clients know a frame has been rendered */
 	clock_gettime(CLOCK_MONOTONIC, &now);
 	wlr_scene_output_send_frame_done(m->scene_output, &now);
+	wlr_output_state_finish(&pending);
 }
 
 void
@@ -2348,6 +2364,7 @@ void
 resize(Client *c, struct wlr_box geo, int interact)
 {
 	struct wlr_box *bbox = interact ? &sgeom : &c->mon->w;
+	struct wlr_box clip;
 	client_set_bounds(c, geo.width, geo.height);
 	c->geom = geo;
 	applybounds(c, bbox);
@@ -2366,6 +2383,8 @@ resize(Client *c, struct wlr_box geo, int interact)
 	/* this is a no-op if size hasn't changed */
 	c->resize = client_set_size(c, c->geom.width - 2 * c->bw,
 			c->geom.height - 2 * c->bw);
+	client_get_clip(c, &clip);
+	wlr_scene_subsurface_tree_set_clip(&c->scene_surface->node, &clip);
 }
 
 void
@@ -2502,21 +2521,9 @@ void setgaps(int oh, int ov, int ih, int iv)
 void setgamma(struct wl_listener *listener, void *data)
 {
 	struct wlr_gamma_control_manager_v1_set_gamma_event *event = data;
-	struct wlr_output_state state;
-	wlr_output_state_init(&state);
-	if (!wlr_gamma_control_v1_apply(event->control, &state)) {
-		wlr_output_state_finish(&state);
-		return;
-	}
-
-	if (!wlr_output_test_state(event->output, &state)) {
-		wlr_gamma_control_v1_send_failed_and_destroy(event->control);
-		wlr_output_state_finish(&state);
-		return;
-	}
-
-	wlr_output_commit_state(event->output, &state);
-	wlr_output_schedule_frame(event->output);
+	Monitor *m = event->output->data;
+	m->gamma_lut_changed = 1;
+	wlr_output_schedule_frame(m->wlr_output);
 }
 
 void
@@ -2612,11 +2619,7 @@ setup(void)
 	/* The backend is a wlroots feature which abstracts the underlying input and
 	 * output hardware. The autocreate option will choose the most suitable
 	 * backend based on the current environment, such as opening an X11 window
-	 * if an X11 server is running. The NULL argument here optionally allows you
-	 * to pass in a custom renderer if wlr_renderer doesn't meet your needs. The
-	 * backend uses the renderer, for example, to fall back to software cursors
-	 * if the backend does not support hardware cursors (some older GPUs
-	 * don't). */
+	 * if an X11 server is running. */
 	if (!(backend = wlr_backend_autocreate(dpy, &session)))
 		die("couldn't create backend");
 
@@ -2627,7 +2630,10 @@ setup(void)
 	drag_icon = wlr_scene_tree_create(&scene->tree);
 	wlr_scene_node_place_below(&drag_icon->node, &layers[LyrBlock]->node);
 
-	/* Create a renderer with the default implementation */
+	/* Autocreates a renderer, either Pixman, GLES2 or Vulkan for us. The user
+	 * can also specify a renderer using the WLR_RENDERER env var.
+	 * The renderer is responsible for defining the various pixel formats it
+	 * supports for shared memory, this configures that for clients. */
 	if (!(drw = wlr_renderer_autocreate(backend)))
 		die("couldn't create renderer");
 
@@ -2644,7 +2650,10 @@ setup(void)
 				wlr_linux_dmabuf_v1_create_with_renderer(dpy, 4, drw));
 	}
 
-	/* Create a default allocator */
+	/* Autocreates an allocator for us.
+	 * The allocator is the bridge between the renderer and the backend. It
+	 * handles the buffer creation, allowing wlroots to render onto the
+	 * screen */
 	if (!(alloc = wlr_allocator_autocreate(backend, drw)))
 		die("couldn't create allocator");
 
@@ -2655,15 +2664,15 @@ setup(void)
 	 * the clients cannot set the selection directly without compositor approval,
 	 * see the setsel() function. */
 	compositor = wlr_compositor_create(dpy, 6, drw);
+	wlr_subcompositor_create(dpy);
+	wlr_data_device_manager_create(dpy);
 	wlr_export_dmabuf_manager_v1_create(dpy);
 	wlr_screencopy_manager_v1_create(dpy);
 	wlr_data_control_manager_v1_create(dpy);
-	wlr_data_device_manager_create(dpy);
 	wlr_primary_selection_v1_device_manager_create(dpy);
 	wlr_viewporter_create(dpy);
 	wlr_single_pixel_buffer_manager_v1_create(dpy);
 	wlr_fractional_scale_manager_v1_create(dpy, 1);
-	wlr_subcompositor_create(dpy);
 
 	/* Initializes the interface used to implement urgency hints */
 	activation = wlr_xdg_activation_v1_create(dpy);
@@ -2683,7 +2692,7 @@ setup(void)
 	wl_list_init(&mons);
 	LISTEN_STATIC(&backend->events.new_output, createmon);
 
-	/* Set up our client lists and the xdg-shell. The xdg-shell is a
+	/* Set up our client lists, the xdg-shell and the layer-shell. The xdg-shell is a
 	 * Wayland protocol which is used for application windows. For more
 	 * detail on shells, refer to the article:
 	 *
@@ -2692,16 +2701,16 @@ setup(void)
 	wl_list_init(&clients);
 	wl_list_init(&fstack);
 
-	idle_notifier = wlr_idle_notifier_v1_create(dpy);
-
-	idle_inhibit_mgr = wlr_idle_inhibit_v1_create(dpy);
-	LISTEN_STATIC(&idle_inhibit_mgr->events.new_inhibitor, createidleinhibitor);
+	xdg_shell = wlr_xdg_shell_create(dpy, 6);
+	LISTEN_STATIC(&xdg_shell->events.new_surface, createnotify);
 
 	layer_shell = wlr_layer_shell_v1_create(dpy, 3);
 	LISTEN_STATIC(&layer_shell->events.new_surface, createlayersurface);
 
-	xdg_shell = wlr_xdg_shell_create(dpy, 6);
-	LISTEN_STATIC(&xdg_shell->events.new_surface, createnotify);
+	idle_notifier = wlr_idle_notifier_v1_create(dpy);
+
+	idle_inhibit_mgr = wlr_idle_inhibit_v1_create(dpy);
+	LISTEN_STATIC(&idle_inhibit_mgr->events.new_inhibitor, createidleinhibitor);
 
 	session_lock_mgr = wlr_session_lock_manager_v1_create(dpy);
 	wl_signal_add(&session_lock_mgr->events.new_lock, &lock_listener);
@@ -2741,9 +2750,7 @@ setup(void)
 	 * when the pointer moves. However, we can attach input devices to it, and
 	 * it will generate aggregate events for all of them. In these events, we
 	 * can choose how we want to process them, forwarding them to clients and
-	 * moving the cursor around. More detail on this process is described in my
-	 * input handling blog post:
-	 *
+	 * moving the cursor around. More detail on this process is described in
 	 * https://drewdevault.com/2018/07/17/Input-handling-in-wlroots.html
 	 *
 	 * And more comments are sprinkled throughout the notify functions above.
@@ -3084,7 +3091,6 @@ updatemons(struct wl_listener *listener, void *data)
 		if (m->wlr_output->enabled
 				&& !wlr_output_layout_get(output_layout, m->wlr_output))
 			wlr_output_layout_add_auto(output_layout, m->wlr_output);
-
 	/* Now that we update the output layout we can get its box */
 	wlr_output_layout_get_box(output_layout, NULL, &sgeom);
 
@@ -3098,8 +3104,8 @@ updatemons(struct wl_listener *listener, void *data)
 		config_head = wlr_output_configuration_head_v1_create(config, m->wlr_output);
 
 		/* Get the effective monitor geometry to use for surfaces */
-		wlr_output_layout_get_box(output_layout, m->wlr_output, &(m->m));
-		wlr_output_layout_get_box(output_layout, m->wlr_output, &(m->w));
+		wlr_output_layout_get_box(output_layout, m->wlr_output, &m->m);
+		m->w = m->m;
 		wlr_scene_output_set_position(m->scene_output, m->m.x, m->m.y);
 
 		wlr_scene_node_set_position(&m->fullscreen_bg->node, m->m.x, m->m.y);
@@ -3116,7 +3122,11 @@ updatemons(struct wl_listener *listener, void *data)
 		arrangelayers(m);
 		/* Don't move clients to the left output when plugging monitors */
 		arrange(m);
+		/* make sure fullscreen clients have the right size */
+		if ((c = focustop(m)) && c->isfullscreen)
+			resize(c, m->m, 0);
 
+		m->gamma_lut_changed = 1;
 		config_head->state.enabled = 1;
 		config_head->state.mode = m->wlr_output->current_mode;
 		config_head->state.x = m->m.x;
@@ -3134,6 +3144,13 @@ updatemons(struct wl_listener *listener, void *data)
 			client_activate_surface(selmon->lock_surface->surface, 1);
 		}
 	}
+
+	/* FIXME: figure out why the cursor image is at 0,0 after turning all
+	 * the monitors on.
+	 * Move the cursor image where it used to be. It does not generate a
+	 * wl_pointer.motion event for the clients, it's only the image what it's
+	 * at the wrong position after all. */
+	wlr_cursor_move(cursor, NULL, 0, 0);
 
 	wlr_output_manager_v1_set_configuration(output_mgr, config);
 }
@@ -3267,7 +3284,6 @@ associatex11(struct wl_listener *listener, void *data)
 {
 	Client *c = wl_container_of(listener, c, associate);
 
-	LISTEN(&client_surface(c)->events.commit, &c->commit, commitnotify);
 	LISTEN(&client_surface(c)->events.map, &c->map, mapnotify);
 	LISTEN(&client_surface(c)->events.unmap, &c->unmap, unmapnotify);
 }
@@ -3313,7 +3329,6 @@ void
 dissociatex11(struct wl_listener *listener, void *data)
 {
 	Client *c = wl_container_of(listener, c, dissociate);
-	wl_list_remove(&c->commit.link);
 	wl_list_remove(&c->map.link);
 	wl_list_remove(&c->unmap.link);
 }
