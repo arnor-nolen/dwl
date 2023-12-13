@@ -14,6 +14,7 @@ static const unsigned int gappih           = 6; /* horiz inner gap between windo
 static const unsigned int gappiv           = 6; /* vert inner gap between windows */
 static const unsigned int gappoh           = 6; /* horiz outer gap between windows and screen edge */
 static const unsigned int gappov           = 6; /* vert outer gap between windows and screen edge */
+static const float rootcolor[]    = COLOR(0x000000ff);
 static const float bordercolor[]    = COLOR(0x727169ff);
 static const float focuscolor[]     = COLOR(0x6a9589ff);
 static const float urgentcolor[]      = {1.0, 0.3, 0.3, 1.0};
