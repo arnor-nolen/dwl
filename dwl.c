@@ -2643,7 +2643,7 @@ setup(void)
 	if (wlr_renderer_get_dmabuf_texture_formats(drw)) {
 		wlr_drm_create(dpy, drw);
 		wlr_scene_set_linux_dmabuf_v1(scene,
-				wlr_linux_dmabuf_v1_create_with_renderer(dpy, 4, drw));
+				wlr_linux_dmabuf_v1_create_with_renderer(dpy, 2, drw));
 	}
 
 	/* Autocreates an allocator for us.
