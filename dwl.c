@@ -29,6 +29,7 @@
 #include <wlr/types/wlr_idle_notify_v1.h>
 #include <wlr/types/wlr_input_device.h>
 #include <wlr/types/wlr_keyboard.h>
+#include <wlr/interfaces/wlr_keyboard.h>
 #include <wlr/types/wlr_keyboard_group.h>
 #include <wlr/types/wlr_layer_shell_v1.h>
 #include <wlr/types/wlr_linux_dmabuf_v1.h>
@@ -2898,56 +2899,46 @@ spawn(const Arg *arg)
 void
 logkeyboard(void)
 {
-    /* Only logging the first keyboard status */
-    KeyboardGroup *kbd;
     const char * full_layout_name;
     char short_layout_name[3] = "";
 
-    wl_list_for_each(kbd, &kb_group.link, link) {
-        const xkb_layout_index_t num_layouts = xkb_keymap_num_layouts(kbd->wlr_group->keyboard.keymap);
-        xkb_layout_index_t i;
+    const xkb_layout_index_t num_layouts = xkb_keymap_num_layouts(kb_group.wlr_group->keyboard.keymap);
+    xkb_layout_index_t i;
 
-        for (i = 0; i != num_layouts; ++i) {
-            if (xkb_state_layout_index_is_active(kbd->wlr_group->keyboard.xkb_state, i, XKB_STATE_LAYOUT_EFFECTIVE) > 0) {
-                FILE *file = fopen(kbd_status_path, "w");
+    for (i = 0; i != num_layouts; ++i) {
+        if (xkb_state_layout_index_is_active(kb_group.wlr_group->keyboard.xkb_state, i, XKB_STATE_LAYOUT_EFFECTIVE) > 0) {
+            FILE *file = fopen(kbd_status_path, "w");
 
-                if (file == NULL) {
-                    exit(1);
-                }
-
-                full_layout_name = xkb_keymap_layout_get_name(kbd->wlr_group->keyboard.keymap, i);
-                strncpy(short_layout_name, full_layout_name, 2);
-                short_layout_name[0] = tolower(short_layout_name[0]);
-                fprintf(file, "%s\n", short_layout_name);
-
-                fclose(file);
-
-                break;
+            if (file == NULL) {
+                exit(1);
             }
-        }
 
-        break;
+            full_layout_name = xkb_keymap_layout_get_name(kb_group.wlr_group->keyboard.keymap, i);
+            strncpy(short_layout_name, full_layout_name, 2);
+            short_layout_name[0] = tolower(short_layout_name[0]);
+            fprintf(file, "%s\n", short_layout_name);
+
+            fclose(file);
+
+            break;
+        }
     }
 }
 
 void
 changekeyboard(const Arg *arg)
 {
-    KeyboardGroup *kbd;
+    const xkb_layout_index_t num_layouts = xkb_keymap_num_layouts(kb_group.wlr_group->keyboard.keymap);
+    xkb_layout_index_t i;
 
-    wl_list_for_each(kbd, &kb_group.link, link) {
-        const xkb_layout_index_t num_layouts = xkb_keymap_num_layouts(kbd->wlr_group->keyboard.keymap);
-        xkb_layout_index_t i;
+    for (i = 0; i != num_layouts; ++i) {
+        if (xkb_state_layout_index_is_active(kb_group.wlr_group->keyboard.xkb_state, i, XKB_STATE_LAYOUT_EFFECTIVE) > 0) {
+            xkb_layout_index_t new_layout = (i + 1) % num_layouts;
 
-        for (i = 0; i != num_layouts; ++i) {
-            if (xkb_state_layout_index_is_active(kbd->wlr_group->keyboard.xkb_state, i, XKB_STATE_LAYOUT_EFFECTIVE) > 0) {
-                xkb_layout_index_t new_layout = (i + 1) % num_layouts;
+            wlr_keyboard_notify_modifiers(&kb_group.wlr_group->keyboard, kb_group.wlr_group->keyboard.modifiers.depressed,
+                kb_group.wlr_group->keyboard.modifiers.latched, kb_group.wlr_group->keyboard.modifiers.locked, new_layout);
 
-                // wlr_keyboard_notify_modifiers(kbd->wlr_group->keyboard, kbd->wlr_group->keyboard.modifiers.depressed,
-                //     kbd->wlr_group->keyboard.modifiers.latched, kbd->wlr_group->keyboard.modifiers.locked, new_layout);
-
-                break;
-            }
+            break;
         }
     }
 
