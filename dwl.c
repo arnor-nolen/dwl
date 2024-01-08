@@ -368,7 +368,6 @@ static void setpsel(struct wl_listener *listener, void *data);
 static void setsel(struct wl_listener *listener, void *data);
 static void setup(void);
 static void spawn(const Arg *arg);
-static void changekeyboard(const Arg *arg);
 static void logkeyboard(void);
 static void startdrag(struct wl_listener *listener, void *data);
 static void tag(const Arg *arg);
@@ -1871,6 +1870,9 @@ keypressmod(struct wl_listener *listener, void *data)
 	/* Send modifiers to the client. */
 	wlr_seat_keyboard_notify_modifiers(seat,
 			&group->wlr_group->keyboard.modifiers);
+
+    /* Set keyboard info. */
+    logkeyboard();
 }
 
 int
@@ -2899,21 +2901,24 @@ spawn(const Arg *arg)
 void
 logkeyboard(void)
 {
+    const Arg arg = {.v = kbd_status_callback};
+
     const char * full_layout_name;
     char short_layout_name[3] = "";
 
-    const xkb_layout_index_t num_layouts = xkb_keymap_num_layouts(kb_group.wlr_group->keyboard.keymap);
+    struct wlr_keyboard * keyboard = wlr_seat_get_keyboard(seat);
+    const xkb_layout_index_t num_layouts = xkb_keymap_num_layouts(keyboard->keymap);
     xkb_layout_index_t i;
 
     for (i = 0; i != num_layouts; ++i) {
-        if (xkb_state_layout_index_is_active(kb_group.wlr_group->keyboard.xkb_state, i, XKB_STATE_LAYOUT_EFFECTIVE) > 0) {
+        if (xkb_state_layout_index_is_active(keyboard->xkb_state, i, XKB_STATE_LAYOUT_EFFECTIVE) > 0) {
             FILE *file = fopen(kbd_status_path, "w");
 
             if (file == NULL) {
                 exit(1);
             }
 
-            full_layout_name = xkb_keymap_layout_get_name(kb_group.wlr_group->keyboard.keymap, i);
+            full_layout_name = xkb_keymap_layout_get_name(keyboard->keymap, i);
             strncpy(short_layout_name, full_layout_name, 2);
             short_layout_name[0] = tolower(short_layout_name[0]);
             fprintf(file, "%s\n", short_layout_name);
@@ -2923,29 +2928,8 @@ logkeyboard(void)
             break;
         }
     }
-}
 
-void
-changekeyboard(const Arg *arg)
-{
-    const xkb_layout_index_t num_layouts = xkb_keymap_num_layouts(kb_group.wlr_group->keyboard.keymap);
-    xkb_layout_index_t i;
-
-    for (i = 0; i != num_layouts; ++i) {
-        if (xkb_state_layout_index_is_active(kb_group.wlr_group->keyboard.xkb_state, i, XKB_STATE_LAYOUT_EFFECTIVE) > 0) {
-            xkb_layout_index_t new_layout = (i + 1) % num_layouts;
-
-            wlr_keyboard_notify_modifiers(&kb_group.wlr_group->keyboard, kb_group.wlr_group->keyboard.modifiers.depressed,
-                kb_group.wlr_group->keyboard.modifiers.latched, kb_group.wlr_group->keyboard.modifiers.locked, new_layout);
-
-            break;
-        }
-    }
-
-    logkeyboard();
-
-    /* Execute command to notify keyboard has changed */
-    spawn(arg);
+    spawn(&arg);
 }
 
 void

@@ -21,7 +21,9 @@ static const float urgentcolor[]      = {1.0, 0.3, 0.3, 1.0};
 /* To conform the xdg-protocol, set the alpha to zero to restore the old behavior */
 static const float fullscreen_bg[]  = {0.157, 0.157, 0.157, 1.0};
 
+/* Keyboard layout tracking */
 static const char *kbd_status_path = "/home/arnor/.cache/.dwl_kbd_layout";
+static const char *kbd_status_callback[] = { "/bin/sh", "-c", "kill -39 $(pidof status-text)", NULL };
 
 /* Autostart */
 static const char *const autostart[] = {
@@ -79,8 +81,8 @@ static const struct xkb_rule_names xkb_rules = {
     /* example:
     .options = "ctrl:nocaps",
     */
-    .layout = "us,ru,fi"
-    /* .options = "grp:win_space_toggle", */
+    .layout = "us,ru,fi",
+    .options = "grp:win_space_toggle",
 };
 
 static const int repeat_rate = 25;
@@ -150,7 +152,6 @@ static const Key keys[] = {
 	{ 0,                         XF86XK_AudioLowerVolume,    spawn,  SHCMD("pulsemixer --change-volume -5 && kill -37 $(pidof status-text)") },
 	{ 0,                         XF86XK_AudioRaiseVolume,    spawn,  SHCMD("pulsemixer --change-volume +5 && kill -37 $(pidof status-text)") },
 	{ 0,                         XF86XK_AudioMute,   spawn,          SHCMD("pulsemixer --toggle-mute && kill -37 $(pidof status-text)") },
-    { WLR_MODIFIER_LOGO,         XKB_KEY_space,      changekeyboard, SHCMD("kill -39 $(pidof status-text)") },
     { MODKEY,                    XKB_KEY_p,          spawn,          SHCMD("tofi-run | xargs /bin/sh -c") },
     { MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_Return,     spawn,          {.v = termcmd} },
     { MODKEY,                    XKB_KEY_j,          focusstack,     {.i = +1} },
